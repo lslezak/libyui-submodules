@@ -1,0 +1,116 @@
+#!/bin/bash
+
+# Rebuild and install all libyui related packages (including yast)
+# !! Use a scratch machine or a container for this !!
+
+# Run from a git superdir, containing checkouts of all yui related repos
+
+set -eu
+#set -x
+
+# quick and dirty installation of all build dependencies
+buildrequires() {
+  zypper in --no-recommends osc build \
+     make cmake boost-devel gcc-c++ pkg-config doxygen sudo \
+     libqt5-qtbase-devel libqt5-qtsvg-devel libqt5-qtx11extras-devel \
+     fontconfig-devel      ncurses-devel      graphviz-devel \
+     libzypp-devel \
+     swig ruby-devel python-devel \
+     yast2-devtools yast2-core-devel \
+     libmicrohttpd-devel jsoncpp-devel \
+     libtool docbook-xsl-stylesheets \
+     xauth xorg-x11-fonts
+}
+
+makerepo() {
+    if test -f ./bootstrap.sh; then
+        ./bootstrap.sh
+    fi
+
+    if test -f CMakeLists.txt; then
+        test -f CMakeLists.txt || ./bootstrap.sh
+
+        if $CLEAN; then
+            rm -rf build
+        fi
+        mkdir -p build; cd build
+        cmake -DCMAKE_BUILD_TYPE=RELWITHDEBINFO ..
+    else
+        make -f Makefile.cvs
+    fi
+
+    make -j$(nproc)
+
+    if $INSTALL; then
+        $SUDO make install
+    fi
+}
+
+LIBYUI_REPOS='
+libyui
+yast-ycp-ui-bindings
+libyui-rest-api
+libyui-ncurses          libyui-qt
+                        libyui-qt-graph
+libyui-ncurses-pkg      libyui-qt-pkg
+libyui-ncurses-rest-api libyui-qt-rest-api
+'
+
+CLEAN=false
+INSTALL=false
+SUDO=""
+
+PARSED=$(getopt -o 'bchis' --long 'buildrequires,clean,help,install,sudo' -- "$@")
+eval set -- "$PARSED"
+unset PARSED
+
+while true; do
+    case "$1" in
+        '-b'|'--buildrequires')
+            buildrequires
+            shift
+            ;;
+        '-c'|'--clean')
+            CLEAN=true
+            shift
+            ;;
+        '-h'|'--help')
+            echo "Usage: makeall [OPTIONS] [SUBDIRS]"
+            echo "  SUBDIRS default to:" $LIBYUI_REPOS
+            echo
+            echo "  Options:"
+            echo "  -b|--buildrequires  install build dependencies beforehand"
+            echo "  -c|--clean          'make clean' before 'make all'"
+            echo "  -i|--install        'make install' after 'make all'"
+            echo "  -s|--sudo           use 'sudo make install'"
+            exit 0
+            ;;
+        '-i'|'--install')
+            INSTALL=true
+            shift
+            ;;
+        '-s'|'--sudo')
+            SUDO=sudo
+            shift
+            ;;
+        '--')
+            shift
+            break
+            ;;
+        *)
+            echo 'Internal error!' >&2
+            exit 1
+            ;;
+    esac
+done
+
+if test $# == 0; then
+    set -- $LIBYUI_REPOS
+fi
+
+for i in "$@" ; do
+    echo == $i ==
+    pushd $i
+    makerepo
+    popd
+done

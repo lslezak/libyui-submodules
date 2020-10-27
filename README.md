@@ -25,3 +25,18 @@ Adding new modules:
 Removing a module:
 
 - `git rm <module>`
+
+#### makeall
+
+Usage: makeall [OPTIONS] [SUBDIRS]
+
+SUBDIRS default to: libyui yast-ycp-ui-bindings libyui-rest-api libyui-ncurses libyui-qt libyui-qt-graph libyui-ncurses-pkg libyui-qt-pkg libyui-ncurses-rest-api libyui-qt-rest-api
+
+Options:
+
+```
+  -b|--buildrequires  install build dependencies beforehand
+  -c|--clean          'make clean' before 'make all'
+  -i|--install        'make install' after 'make all'
+  -s|--sudo           use 'sudo make install'
+```
